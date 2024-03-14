@@ -1,4 +1,5 @@
-NAME = xnb
+NAME = xnb.js
+CXX = emcc
 CFLAGS := $(CFLAGS) -std=c++20 -O0 -Isrc -Istb
 
 .PHONY: clean
