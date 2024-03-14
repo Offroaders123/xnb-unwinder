@@ -884,7 +884,7 @@ static int hasOverFlow(int64_t bytesRead, int64_t size, int amount) {
     }
     return 0;
 }
-static int XDecompress(uint8_t* input, uint8_t* output, unsigned long sizeIn, unsigned long* sizeOut) {
+static int XDecompress(struct LZXstate *state, unsigned char *input, unsigned char *output, int sizeIn, int sizeOut) {
     uint8_t* dst = (uint8_t*)malloc(0x8000);
     uint8_t* src = (uint8_t*)malloc(0x8000);
     if (src == NULL || dst == NULL) {
@@ -899,7 +899,7 @@ static int XDecompress(uint8_t* input, uint8_t* output, unsigned long sizeIn, un
         return 0;
     }
     uint8_t* outputPointer = output;
-    struct LZXstate* strm = LZXinit(17);
+    struct LZXstate* strm = state;
     if (!strm) {
         printf("Failed to initialize lzx decompressor, exiting\n");
         if (src != NULL)
@@ -914,7 +914,7 @@ static int XDecompress(uint8_t* input, uint8_t* output, unsigned long sizeIn, un
     int wasLargerThan0x8000 = 0;
     int64_t bytes = 0;
     int64_t bytesRead = 0;
-    while (bytes < *sizeOut) {
+    while (bytes < sizeOut) {
         if (hasOverFlow(bytesRead, sizeIn, 1)) { goto ERROR; }
         int src_size, dst_size, hi, lo;
         hi = *input;
@@ -997,7 +997,7 @@ ERROR:
     if (dst != NULL) {
         free(dst);
     }
-    LZXteardown(strm);
+    // LZXteardown(strm);
     return bytes;
 }
 
@@ -1019,7 +1019,7 @@ int main(int c, char **v)
     // for (i = 3; i < c; i++) {
         fin = fopen(v[1], "rb");
         ilen = fread(ibuf, 1, 16384, fin);
-        status = LZXdecompress(&state, ibuf, obuf, ilen, 32768);
+        status = XDecompress(&state, ibuf, obuf, ilen, 32768);
         printf("%i\n", status);
         switch (status) {
         case DECR_OK:
