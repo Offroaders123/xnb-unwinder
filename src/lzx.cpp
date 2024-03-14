@@ -162,9 +162,9 @@ static const ULONG position_base[51] = {
     786432,  917504,  1048576, 1179648, 1310720, 1441792, 1572864, 1703936,
     1835008, 1966080, 2097152};
 
-struct LZXstate *LZXinit(int window)
+struct LZXstate *LZXinit(struct LZXstate *pState, int window)
 {
-    struct LZXstate *pState = NULL;
+    // struct LZXstate *pState = NULL;
     ULONG wndsize = 1 << window;
     int i, posn_slots;
 
@@ -876,7 +876,7 @@ int LZXdecompress(struct LZXstate *pState, unsigned char *inpos,
     return DECR_OK;
 }
 
-#ifdef LZX_CHM_TESTDRIVER
+// #ifdef LZX_CHM_TESTDRIVER
 int main(int c, char **v)
 {
     FILE *fin, *fout;
@@ -890,10 +890,12 @@ int main(int c, char **v)
     int w = atoi(v[1]);
     LZXinit(&state, w);
     fout = fopen(v[2], "wb");
-    for (i = 3; i < c; i++) {
-        fin = fopen(v[i], "rb");
+    printf("%i\n%s\n%s\n", c, v[1], v[2]);
+    // for (i = 3; i < c; i++) {
+        fin = fopen(v[1], "rb");
         ilen = fread(ibuf, 1, 16384, fin);
         status = LZXdecompress(&state, ibuf, obuf, ilen, 32768);
+        printf("%i\n", status);
         switch (status) {
         case DECR_OK:
             printf("ok\n");
@@ -916,7 +918,7 @@ int main(int c, char **v)
             count = 0;
             LZXreset(&state);
         }
-    }
+    // }
     fclose(fout);
 }
-#endif
+// #endif
