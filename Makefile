@@ -10,7 +10,7 @@ debug: CFLAGS += -DXNA_LOG -g
 debug: bin/$(NAME)
 
 bin/$(NAME) : src/*.cpp src/readers/*.cpp | bin
-	$(CXX) $(CFLAGS) $^ -o bin/$(NAME)
+	$(CXX) $(CFLAGS) $^ -o bin/$(NAME) -s EXPORTED_RUNTIME_METHODS=ccall,cwrap
 
 bin:
 	mkdir bin
