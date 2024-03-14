@@ -876,6 +876,131 @@ int LZXdecompress(struct LZXstate *pState, unsigned char *inpos,
     return DECR_OK;
 }
 
+//the max "amount" here is 0xffff which is only 2^16 - 1 so it won't over flow (0xff < 8) | 0xff
+static int hasOverFlow(int64_t bytesRead, int64_t size, int amount) {
+    if (bytesRead + amount > size) {
+        printf("Tried to read past buffer when decompressing buffer with xmem\n");
+        return 1;
+    }
+    return 0;
+}
+static int XDecompress(uint8_t* input, uint8_t* output, unsigned long sizeIn, unsigned long* sizeOut) {
+    uint8_t* dst = (uint8_t*)malloc(0x8000);
+    uint8_t* src = (uint8_t*)malloc(0x8000);
+    if (src == NULL || dst == NULL) {
+        printf("Out of memory, could not allocate 2 * 32768 bytes for buffer, exiting\n");
+        if (src != NULL)
+        {
+            free(src);
+        }
+        if (dst != NULL) {
+            free(dst);
+        }
+        return 0;
+    }
+    uint8_t* outputPointer = output;
+    struct LZXstate* strm = LZXinit(17);
+    if (!strm) {
+        printf("Failed to initialize lzx decompressor, exiting\n");
+        if (src != NULL)
+        {
+            free(src);
+        }
+        if (dst != NULL) {
+            free(dst);
+        }
+        return 0;
+    }
+    int wasLargerThan0x8000 = 0;
+    int64_t bytes = 0;
+    int64_t bytesRead = 0;
+    while (bytes < *sizeOut) {
+        if (hasOverFlow(bytesRead, sizeIn, 1)) { goto ERROR; }
+        int src_size, dst_size, hi, lo;
+        hi = *input;
+        input++;
+        if (hi == 0xFF) {
+            if (hasOverFlow(bytesRead, sizeIn, 4)) { goto ERROR; }
+            hi = *input;
+            input++;
+            lo = *input;
+            input++;
+            dst_size = (hi << 8) | lo;
+            if (dst_size > 0x8000)
+            {
+                printf("Invalid data, exiting\n");
+                bytes = 0;
+                break;
+            }
+            hi = *input;
+            input++;
+            lo = *input;
+            input++;
+            src_size = (hi << 8) | lo;
+        }
+        else {
+            if (hasOverFlow(bytesRead, sizeIn, 1)) { goto ERROR; }
+            dst_size = 0x8000;
+
+            lo = *input;
+            input++;
+            src_size = (hi << 8) | lo;
+        }
+
+        if (src_size == 0 || dst_size == 0) {
+            //no need to output this
+            //printf("EOF\n");
+            break;
+        }
+        if (wasLargerThan0x8000 && src_size <= 0x8000)
+        {
+            wasLargerThan0x8000 = 0;
+            free(src);
+            src = (uint8_t*)malloc(0x8000);
+            if (src == NULL) {
+                printf("Out of memory, could not allocate 32768 bytes for buffer, exiting\n");
+                bytes = 0;
+                goto ERROR;
+            }
+        }
+        if (src_size > 0x8000)//the compressed size if rarely larger than the decompressed size
+        {
+            wasLargerThan0x8000 = 1;
+            free(src);
+            src = (uint8_t*)malloc(src_size);
+            if (src == NULL) {
+                printf("Out of memory, could not allocate %d bytes for buffer, exiting\n", src_size);
+                bytes = 0;
+                goto ERROR;
+            }
+        }
+        if (hasOverFlow(bytesRead, sizeIn, src_size)) { goto ERROR; }
+        memcpy(src, input, src_size);
+        input += src_size;
+        int error = LZXdecompress(strm, src, dst, src_size, dst_size);
+        if (error == 0) {
+            memcpy(outputPointer, dst, dst_size);
+            outputPointer += dst_size;
+            bytes += dst_size;
+        }
+        else {
+            printf("Error decompressing, exiting\n");
+            bytes = 0;
+            break;
+        }
+    }
+ERROR:
+    if (src != NULL)
+    {
+        free(src);
+    }
+    if (dst != NULL) {
+        free(dst);
+    }
+    LZXteardown(strm);
+    return bytes;
+}
+
 // #ifdef LZX_CHM_TESTDRIVER
 int main(int c, char **v)
 {
